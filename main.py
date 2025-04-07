@@ -8,7 +8,7 @@ from apscheduler.schedulers.blocking import BlockingScheduler
 from datetime import datetime, timedelta
 from openai import OpenAI
 
-# Cargar variables del entorno
+# Load environment variables
 load_dotenv()
 
 api_id = int(os.getenv("TELEGRAM_API_ID"))
@@ -16,78 +16,78 @@ api_hash = os.getenv("TELEGRAM_API_HASH")
 openai_api_key = os.getenv("OPENAI_API_KEY")
 target_name = os.getenv("TELEGRAM_TARGET")
 
-# Crear cliente de Telegram y OpenAI
+# Create Telegram and OpenAI clients
 client = TelegramClient("saul_session", api_id, api_hash)
 client_openai = OpenAI(api_key=openai_api_key)
 
-# Ruta al archivo de registro de mensajes e instrucciones
-HISTORIAL_PATH = os.path.join(os.path.dirname(__file__), "historial_mensajes.json")
+# Path to the message history and prompt files
+HISTORY_PATH = os.path.join(os.path.dirname(__file__), "message_history.json")
 PROMPT_PATH = os.path.join(os.path.dirname(__file__), "prompt.txt")
 
-# Cargar historial de mensajes previos (últimos 15)
-def cargar_historial():
-    if os.path.exists(HISTORIAL_PATH):
-        with open(HISTORIAL_PATH, "r") as f:
+# Load previous message history (last 15 messages)
+def load_history():
+    if os.path.exists(HISTORY_PATH):
+        with open(HISTORY_PATH, "r") as f:
             return json.load(f)
     return []
 
-def guardar_en_historial(mensaje):
-    historial = cargar_historial()
-    historial.insert(0, mensaje)
-    historial = historial[:15]  # Mantener solo los últimos 15
-    with open(HISTORIAL_PATH, "w") as f:
-        json.dump(historial, f, ensure_ascii=False, indent=2)
+def save_to_history(message):
+    history = load_history()
+    history.insert(0, message)
+    history = history[:15]  # Keep only the last 15 messages
+    with open(HISTORY_PATH, "w") as f:
+        json.dump(history, f, ensure_ascii=False, indent=2)
 
-# Cargar el prompt desde archivo externo
-def cargar_prompt():
+# Load the prompt from an external file
+def load_prompt():
     if not os.path.exists(PROMPT_PATH):
-        raise FileNotFoundError("El archivo prompt.txt no existe. Crea uno con las instrucciones del mensaje.")
+        raise FileNotFoundError("The prompt.txt file does not exist. Create one with the message instructions.")
     with open(PROMPT_PATH, "r", encoding="utf-8") as f:
         return f.read()
 
-# Prompt para crear el mensaje
-def generar_mensaje():
-    historial = cargar_historial()
-    prompt_base = cargar_prompt()
-    prompt_completo = f"{prompt_base}\n\nEvita repetir ideas ya utilizadas recientemente. Aquí tienes una lista de los últimos 15 mensajes usados:\n{json.dumps(historial, ensure_ascii=False)}"
+# Generate the message
+def generate_message():
+    history = load_history()
+    base_prompt = load_prompt()
+    complete_prompt = f"{base_prompt}\n\nAvoid repeating ideas recently used. Here is a list of the last 15 messages used:\n{json.dumps(history, ensure_ascii=False)}"
 
     response = client_openai.chat.completions.create(
         model="gpt-4o",
-        messages=[{"role": "user", "content": prompt_completo}],
+        messages=[{"role": "user", "content": complete_prompt}],
         max_tokens=250
     )
     return response.choices[0].message.content.strip()
 
-# Función para mandar el mensaje
-async def enviar_mensaje():
+# Function to send the message
+async def send_message():
     await client.start()
-    mensaje = generar_mensaje()
-    print("Mensaje generado:\n", mensaje)
+    message = generate_message()
+    print("Generated message:\n", message)
 
-    contacto = await client.get_entity(target_name)
-    await client.send_message(contacto, mensaje)
-    print(f"Mensaje enviado a {target_name} a las {datetime.now()}")
+    contact = await client.get_entity(target_name)
+    await client.send_message(contact, message)
+    print(f"Message sent to {target_name} at {datetime.now()}")
 
-    guardar_en_historial(mensaje)
+    save_to_history(message)
     await client.disconnect()
 
-# Programador diario con franja aleatoria
-def planificar_envio():
+# Daily scheduler with a random time window
+def schedule_sending():
     scheduler = BlockingScheduler()
 
-    def programar_hora_aleatoria():
-        hora_base = 9  # 9:00
-        minutos_random = random.randint(0, 120)  # hasta las 11:00
-        hora_envio = datetime.now().replace(hour=hora_base, minute=0, second=0, microsecond=0) + timedelta(minutes=minutos_random)
+    def schedule_random_time():
+        base_hour = 9  # 9:00 AM
+        random_minutes = random.randint(0, 120)  # up to 11:00 AM
+        send_time = datetime.now().replace(hour=base_hour, minute=0, second=0, microsecond=0) + timedelta(minutes=random_minutes)
         scheduler.add_job(
-            lambda: client.loop.run_until_complete(enviar_mensaje()),
+            lambda: client.loop.run_until_complete(send_message()),
             trigger='cron',
-            hour=hora_envio.hour,
-            minute=hora_envio.minute
+            hour=send_time.hour,
+            minute=send_time.minute
         )
-        print(f"Mensaje programado para las {hora_envio.strftime('%H:%M')}")
+        print(f"Message scheduled for {send_time.strftime('%H:%M')}")
 
-    programar_hora_aleatoria()
+    schedule_random_time()
     scheduler.start()
 
 if __name__ == "__main__":
@@ -96,7 +96,7 @@ if __name__ == "__main__":
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     try:
-        loop.run_until_complete(enviar_mensaje())
+        loop.run_until_complete(send_message())
     finally:
         loop.run_until_complete(loop.shutdown_asyncgens())
         loop.close()
