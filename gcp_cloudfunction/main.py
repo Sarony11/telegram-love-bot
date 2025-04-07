@@ -6,6 +6,7 @@ from telethon.sync import TelegramClient
 from openai import OpenAI
 from datetime import datetime
 
+# Flask app object, required by Gunicorn in Cloud Run
 app = Flask(__name__)
 
 # Load environment variables
@@ -24,12 +25,14 @@ client_openai = OpenAI(api_key=openai_api_key)
 HISTORY_PATH = os.path.join(os.path.dirname(__file__), "message_history.json")
 PROMPT_PATH = os.path.join(os.path.dirname(__file__), "prompt.txt")
 
+# Load last messages
 def load_history():
     if os.path.exists(HISTORY_PATH):
         with open(HISTORY_PATH, "r") as f:
             return json.load(f)
     return []
 
+# Save new message to history
 def save_to_history(message):
     history = load_history()
     history.insert(0, message)
@@ -37,12 +40,14 @@ def save_to_history(message):
     with open(HISTORY_PATH, "w") as f:
         json.dump(history, f, ensure_ascii=False, indent=2)
 
+# Load prompt text
 def load_prompt():
     if not os.path.exists(PROMPT_PATH):
-        raise FileNotFoundError("The prompt.txt file does not exist. Create one with the message instructions.")
+        raise FileNotFoundError("The prompt.txt file does not exist.")
     with open(PROMPT_PATH, "r", encoding="utf-8") as f:
         return f.read()
 
+# Generate new message using OpenAI
 def generate_message():
     history = load_history()
     base_prompt = load_prompt()
@@ -55,6 +60,7 @@ def generate_message():
     )
     return response.choices[0].message.content.strip()
 
+# Cloud Run HTTP endpoint (called via POST)
 @app.route("/", methods=["POST"])
 def send_message():
     with client:
@@ -68,8 +74,3 @@ def send_message():
         save_to_history(message)
 
     return "Mensaje enviado correctamente", 200
-
-# ✅ Add this block to run the Flask app (required by Cloud Run)
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8080))  # Cloud Run provides this env var
-    app.run(host="0.0.0.0", port=port)
