@@ -8,7 +8,7 @@ from datetime import datetime
 
 app = Flask(__name__)
 
-# Cargar variables de entorno
+# Load environment variables
 load_dotenv()
 
 api_id = int(os.getenv("TELEGRAM_API_ID"))
@@ -16,11 +16,11 @@ api_hash = os.getenv("TELEGRAM_API_HASH")
 openai_api_key = os.getenv("OPENAI_API_KEY")
 target_name = os.getenv("TELEGRAM_TARGET")
 
-# Crear clientes de Telegram y OpenAI
+# Initialize clients
 client = TelegramClient("saul_session", api_id, api_hash)
 client_openai = OpenAI(api_key=openai_api_key)
 
-# Rutas a los archivos de historial y prompt
+# File paths
 HISTORY_PATH = os.path.join(os.path.dirname(__file__), "message_history.json")
 PROMPT_PATH = os.path.join(os.path.dirname(__file__), "prompt.txt")
 
@@ -39,7 +39,7 @@ def save_to_history(message):
 
 def load_prompt():
     if not os.path.exists(PROMPT_PATH):
-        raise FileNotFoundError("El archivo prompt.txt no existe. Crea uno con las instrucciones del mensaje.")
+        raise FileNotFoundError("The prompt.txt file does not exist. Create one with the message instructions.")
     with open(PROMPT_PATH, "r", encoding="utf-8") as f:
         return f.read()
 
@@ -67,4 +67,9 @@ def send_message():
 
         save_to_history(message)
 
-    return "Mensaje enviado", 200
+    return "Mensaje enviado correctamente", 200
+
+# ✅ Add this block to run the Flask app (required by Cloud Run)
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8080))  # Cloud Run provides this env var
+    app.run(host="0.0.0.0", port=port)
