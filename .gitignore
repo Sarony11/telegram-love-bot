@@ -1,0 +1,27 @@
+# Ignorar archivos de entorno y configuración sensible
+.env
+prompt.txt
+historial_mensajes.json
+*session.session
+
+# Ignorar archivos de caché de Python
+__pycache__/
+*.py[cod]
+
+# Ignorar archivos de registro
+*.log
+
+# Ignorar archivos de bases de datos locales
+*.sqlite3
+
+# Ignorar archivos de configuración de entornos virtuales
+venv/
+.env/
+
+# Ignorar archivos de configuración de editores de texto/IDE
+.vscode/
+.idea/
+
+# Ignorar archivos de sistema
+.DS_Store
+Thumbs.db
